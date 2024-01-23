@@ -118,6 +118,10 @@ class Ticker(TickerBase):
         return self.get_annual_performance()
 
     @property
+    def morningstar_box(self) -> _pd.DataFrame:
+        return self.get_morningstar_box()
+    
+    @property
     def major_holders(self) -> _pd.DataFrame:
         return self.get_major_holders()
 

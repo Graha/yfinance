@@ -41,6 +41,7 @@ from .scrapers.analysis import Analysis
 from .scrapers.fundamentals import Fundamentals
 from .scrapers.holders import Holders
 from .scrapers.holdings import Holdings
+from .scrapers.profile import Profile
 from .scrapers.performance import Performance
 from .scrapers.quote import Quote, FastInfo
 
@@ -76,6 +77,7 @@ class TickerBase:
         self._holders = Holders(self._data, self.ticker)
         self._holdings = Holdings(self._data, self.ticker)
         self._performance = Performance(self._data, self.ticker)
+        self._profile = Profile(self._data, self.ticker)
         self._quote = Quote(self._data, self.ticker)
         self._fundamentals = Fundamentals(self._data, self.ticker)
 
@@ -1725,6 +1727,14 @@ class TickerBase:
         if as_dict:
             return data.to_dict()
         return data
+
+    def get_morningstar_box(self, proxy=None, as_dict=False):
+        self._performance.proxy = proxy
+        data = self._profile.moringstar_box
+        if as_dict:
+            return data.to_dict()
+        return data
+
 
     def get_top_holdings(self, proxy=None, as_dict=False):
         self._holdings.proxy = proxy
