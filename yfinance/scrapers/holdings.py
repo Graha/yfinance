@@ -72,7 +72,7 @@ class Holdings:
                     title = chld_list[0].get_text()
                     if title in Returns:
                         data = np.array(reshape(chld_list[1].get_text("|").split("|"), 2))
-                        holdings.append(pd.DataFrame(data=data[0:,0:],index=data[0:,0],columns=data[0,0:]))
+                        holdings.append(pd.DataFrame(data[:,1], index=data[:,0]))
 
         except Exception as e:
             holdings = []
