@@ -106,6 +106,15 @@ class Ticker(TickerBase):
         return self.get_isin()
 
     @property
+    def composition_holdings(self) -> _pd.DataFrame:
+        return self.get_composition_holdings()
+
+    @property
+    def sector_holdings(self) -> _pd.DataFrame:
+        return self.get_sector_holdings()
+
+
+    @property
     def top_holdings(self) -> _pd.DataFrame:
         return self.get_top_holdings()
 

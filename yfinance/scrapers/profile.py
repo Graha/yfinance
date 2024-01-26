@@ -32,7 +32,10 @@ class Profile:
             for row in ["Value", "Blend", "Growth"]:
                 score += [col + row]
         result = re.search(r".*3_0stylelargeeq(\d).gif", file_name)
-        return score[int(result.group(1))-1]
+        if result != None:
+            return score[int(result.group(1))-1]
+        else:
+            return None
 
 
     def _scrape(self, proxy):

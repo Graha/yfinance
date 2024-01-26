@@ -1735,6 +1735,19 @@ class TickerBase:
             return data.to_dict()
         return data
 
+    def get_composition_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.composition
+        if as_dict:
+            return data.to_dict()
+        return data
+    
+    def get_sector_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.sector
+        if as_dict:
+            return data.to_dict()
+        return data
 
     def get_top_holdings(self, proxy=None, as_dict=False):
         self._holdings.proxy = proxy
