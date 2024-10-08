@@ -73,8 +73,10 @@ class Holders:
     def _fetch(self, proxy):
         modules = ','.join(
             ["institutionOwnership", "fundOwnership", "majorDirectHolders", "majorHoldersBreakdown", "insiderTransactions", "insiderHolders", "netSharePurchaseActivity"])
-        params_dict = {"modules": modules, "corsDomain": "finance.yahoo.com", "formatted": "false"}
-        result = self._data.get_raw_json(f"{_QUOTE_SUMMARY_URL_}/{self._symbol}", user_agent_headers=self._data.user_agent_headers, params=params_dict, proxy=proxy)
+        params_dict = {"modules": modules,
+                       "corsDomain": "finance.yahoo.com", "formatted": "false"}
+        result = self._data.get_raw_json(f"{_QUOTE_SUMMARY_URL_}/{self._symbol}",
+                                         user_agent_headers=self._data.user_agent_headers, params=params_dict, proxy=proxy)
         return result
 
     def _fetch_and_parse(self):
@@ -96,13 +98,17 @@ class Holders:
         try:
             data = result["quoteSummary"]["result"][0]
             # parse "institutionOwnership", "fundOwnership", "majorDirectHolders", "majorHoldersBreakdown", "insiderTransactions", "insiderHolders", "netSharePurchaseActivity"
-            self._parse_institution_ownership(data.get("institutionOwnership", {}))
+            self._parse_institution_ownership(
+                data.get("institutionOwnership", {}))
             self._parse_fund_ownership(data.get("fundOwnership", {}))
             # self._parse_major_direct_holders(data.get("majorDirectHolders", {}))  # need more data to investigate
-            self._parse_major_holders_breakdown(data.get("majorHoldersBreakdown", {}))
-            self._parse_insider_transactions(data.get("insiderTransactions", {}))
+            self._parse_major_holders_breakdown(
+                data.get("majorHoldersBreakdown", {}))
+            self._parse_insider_transactions(
+                data.get("insiderTransactions", {}))
             self._parse_insider_holders(data.get("insiderHolders", {}))
-            self._parse_net_share_purchase_activity(data.get("netSharePurchaseActivity", {}))
+            self._parse_net_share_purchase_activity(
+                data.get("netSharePurchaseActivity", {}))
         except (KeyError, IndexError):
             raise YFDataException("Failed to parse holders json data.")
 
@@ -121,7 +127,8 @@ class Holders:
         df = pd.DataFrame(holders)
         if not df.empty:
             df["reportDate"] = pd.to_datetime(df["reportDate"], unit="s")
-            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder", "position": "Shares", "value": "Value"}, inplace=True)  # "pctHeld": "% Out"
+            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder",
+                      "position": "Shares", "value": "Value"}, inplace=True)  # "pctHeld": "% Out"
         self._institutional = df
 
     def _parse_fund_ownership(self, data):
@@ -133,7 +140,8 @@ class Holders:
         df = pd.DataFrame(holders)
         if not df.empty:
             df["reportDate"] = pd.to_datetime(df["reportDate"], unit="s")
-            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder", "position": "Shares", "value": "Value"}, inplace=True)
+            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder",
+                      "position": "Shares", "value": "Value"}, inplace=True)
         self._mutualfund = df
 
     def _parse_major_direct_holders(self, data):
@@ -145,7 +153,8 @@ class Holders:
         df = pd.DataFrame(holders)
         if not df.empty:
             df["reportDate"] = pd.to_datetime(df["reportDate"], unit="s")
-            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder", "positionDirect": "Shares", "valueDirect": "Value"}, inplace=True)
+            df.rename(columns={"reportDate": "Date Reported", "organization": "Holder",
+                      "positionDirect": "Shares", "valueDirect": "Value"}, inplace=True)
         self._major_direct_holders = df
 
     def _parse_major_holders_breakdown(self, data):
@@ -187,8 +196,10 @@ class Holders:
             del owner["maxAge"]
         df = pd.DataFrame(holders)
         if not df.empty:
-            df["positionDirectDate"] = pd.to_datetime(df["positionDirectDate"], unit="s")
-            df["latestTransDate"] = pd.to_datetime(df["latestTransDate"], unit="s")
+            df["positionDirectDate"] = pd.to_datetime(
+                df["positionDirectDate"], unit="s")
+            df["latestTransDate"] = pd.to_datetime(
+                df["latestTransDate"], unit="s")
 
             df.rename(columns={
                 "name": "Name",
@@ -205,7 +216,8 @@ class Holders:
             df["Name"] = df["Name"].astype(str)
             df["Position"] = df["Position"].astype(str)
             df["URL"] = df["URL"].astype(str)
-            df["Most Recent Transaction"] = df["Most Recent Transaction"].astype(str)
+            df["Most Recent Transaction"] = df["Most Recent Transaction"].astype(
+                str)
 
         self._insider_roster = df
 

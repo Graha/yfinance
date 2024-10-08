@@ -2,14 +2,18 @@ from io import StringIO
 
 import pandas as pd
 import numpy as np
+from . import utils
+
 
 from yfinance.data import YfData
 from bs4 import BeautifulSoup
 
 Returns = ["Overall Portfolio Composition (%)", "Sector Weightings (%)"]
+logger = utils.get_yf_logger()
+
 
 def reshape(lst, per_row):
-    return [ lst[x:x+per_row] for x in range(0, len(lst), per_row) ] 
+    return [lst[x:x+per_row] for x in range(0, len(lst), per_row)]
 
 
 class Holdings:
@@ -35,7 +39,7 @@ class Holdings:
         if self._sector is None:
             self._scrape_div(self.proxy)
         return self._sector
-    
+
     @property
     def composition(self) -> pd.DataFrame:
         if self._composition is None:
@@ -47,7 +51,7 @@ class Holdings:
         try:
             resp = self._data.cache_get(ticker_url + '/holdings', proxy=proxy)
             if "holdings" not in resp.url:
-                raise Exception("Page not found") 
+                raise Exception("Page not found")
             holdings = pd.read_html(StringIO(resp.text))
             # soup = BeautifulSoup(resp.text, 'html.parser')
             # soup.find()
@@ -62,19 +66,22 @@ class Holdings:
         try:
             resp = self._data.cache_get(ticker_url + '/holdings', proxy=proxy)
             if "holdings" not in resp.url:
-                raise Exception("Page not found") 
-            holdings = [] #pd.read_html(StringIO(resp.text))
+                raise Exception("Page not found")
+            holdings = []  # pd.read_html(StringIO(resp.text))
             soup = BeautifulSoup(resp.text, 'html.parser')
-            divs = soup.find_all("div", {"class":"Mb(25px)"})
+            divs = soup.find_all("div", {"class": "Mb(25px)"})
             for div in divs:
                 chld_list = [chld for chld in div.children]
                 if len(chld_list) == 2:
                     title = chld_list[0].get_text()
                     if title in Returns:
-                        data = np.array(reshape(chld_list[1].get_text("|").split("|"), 2))
-                        holdings.append(pd.DataFrame(data[:,1], index=data[:,0]))
+                        data = np.array(
+                            reshape(chld_list[1].get_text("|").split("|"), 2))
+                        holdings.append(pd.DataFrame(
+                            data[:, 1], index=data[:, 0]))
 
         except Exception as e:
+            logger.debug(e)
             holdings = []
 
         if len(holdings) >= 2:
