@@ -36,7 +36,7 @@ from . import shared
 @utils.log_indent_decorator
 def download(tickers, start=None, end=None, actions=False, threads=True, ignore_tz=None,
              group_by='column', auto_adjust=False, back_adjust=False, repair=False, keepna=False,
-             progress=True, period="max", show_errors=None, interval="1d", prepost=False,
+             progress=True, period="max", interval="1d", prepost=False,
              proxy=None, rounding=False, timeout=10, session=None):
     """Download yahoo tickers
     :Parameters:
@@ -80,9 +80,6 @@ def download(tickers, start=None, end=None, actions=False, threads=True, ignore_
             Optional. Proxy server URL scheme. Default is None
         rounding: bool
             Optional. Round values to 2 decimal places?
-        show_errors: bool
-            Optional. Doesn't print errors if False
-            DEPRECATED, will be removed in future version
         timeout: None or float
             If not None stops waiting for a response after given number of
             seconds. (Can also be a fraction of a second e.g. 0.01)
@@ -90,14 +87,6 @@ def download(tickers, start=None, end=None, actions=False, threads=True, ignore_
             Optional. Pass your own session object to be used for all requests
     """
     logger = utils.get_yf_logger()
-
-    if show_errors is not None:
-        if show_errors:
-            utils.print_once(f"yfinance: download(show_errors={show_errors}) argument is deprecated and will be removed in future version. Do this instead: logging.getLogger('yfinance').setLevel(logging.ERROR)")
-            logger.setLevel(logging.ERROR)
-        else:
-            utils.print_once(f"yfinance: download(show_errors={show_errors}) argument is deprecated and will be removed in future version. Do this instead to suppress error messages: logging.getLogger('yfinance').setLevel(logging.CRITICAL)")
-            logger.setLevel(logging.CRITICAL)
 
     if logger.isEnabledFor(logging.DEBUG):
         if threads:
@@ -172,7 +161,7 @@ def download(tickers, start=None, end=None, actions=False, threads=True, ignore_
                                  rounding=rounding, timeout=timeout)
             if progress:
                 shared._PROGRESS_BAR.animate()
-    
+
     if progress:
         shared._PROGRESS_BAR.completed()
 
@@ -217,12 +206,12 @@ def download(tickers, start=None, end=None, actions=False, threads=True, ignore_
 
     try:
         data = _pd.concat(shared._DFS.values(), axis=1, sort=True,
-                          keys=shared._DFS.keys())
+                          keys=shared._DFS.keys(), names=['Ticker', 'Price'])
     except Exception:
         _realign_dfs()
         data = _pd.concat(shared._DFS.values(), axis=1, sort=True,
-                          keys=shared._DFS.keys())
-    data.index = _pd.to_datetime(data.index)
+                          keys=shared._DFS.keys(), names=['Ticker', 'Price'])
+    data.index = _pd.to_datetime(data.index, utc=True)
     # switch names back to isins if applicable
     data.rename(columns=shared._ISINS, inplace=True)
 
@@ -262,7 +251,7 @@ def _download_one_threaded(ticker, start=None, end=None,
                            actions=False, progress=True, period="max",
                            interval="1d", prepost=False, proxy=None,
                            keepna=False, rounding=False, timeout=10):
-    data = _download_one(ticker, start, end, auto_adjust, back_adjust, repair,
+    _download_one(ticker, start, end, auto_adjust, back_adjust, repair,
                          actions, period, interval, prepost, proxy, rounding,
                          keepna, timeout)
     if progress:

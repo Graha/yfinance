@@ -1,6 +1,115 @@
 Change Log
 ===========
 
+0.2.44
+------
+Features:
+- fetch funds #2041
+- fetch sector & industry #2058
+Fixes:
+- improve dividend repair #2062
+
+0.2.43
+------
+Fix price-repair bug introduced in 0.2.42 #2036
+
+0.2.42
+------
+Features:
+- fetch SEC filings #2009
+- fetch analysis #2023 @Fidasek009
+- price repair extended to dividends & adjust #2031
+Fixes:
+- fix error on empty options chain #1995 @stevenbischoff
+- use dict.get() to safely access key in Holders #2013 @ericpien
+- fix datetime conversion with mixed timezones when ignore_tz is False #2016 @mreiche
+- handle faulty response object when getting news. #2021 @ericpien
+Maintenance:
+- prices: improve exceptions and logging #2000
+
+0.2.41
+------
+Improvements:
+- add keys to financials #1965 #1985
+- fetch Sustainability #1959
+- improve price-repair-zeroes #1990
+Fixes (prices):
+- fetching when period='max' #1967
+- metadata: Fix '1wk is invalid' & repeated calls #1970
+- Pandas warnings #1955 #1981
+- price repair syntax errors #1989
+Maintenance:
+- deprecate Ticker.earnings #1977
+
+0.2.40
+------
+Fix typo in 0.2.39 c7af213
+
+0.2.39
+------
+Fixes:
+- Fix switching session from/to requests_cache #1930
+Price repair:
+- Fix potential for price repair to discard price=0 rows #1874
+- Don't price-repair FX volume=0, is normal #1920
+- Improve 'sudden change' repair for splits & currency  #1931
+Information:
+- Fix help(yf.download) not showing the information about the function #1913 @vittoboa
+- Add more specific error throwing based on PR 1918 #1928 @elibroftw @marcofognog
+Maintenance:
+- Replace dead 'appdirs' package with 'platformdirs' #1896
+- Deprecate 'pandas_datareader', remove a deprecated argument #1897
+- Fix: datetime.datetime.utcnow() is deprecated ... #1922
+
+0.2.38
+------
+Fix holders & insiders #1908
+
+0.2.37
+------
+Small fixes:
+- Fix Pandas warnings #1838 #1844
+- Fix price repair bug, typos, refactor #1866 #1865 #1849
+- Stop disabling logging #1841
+
+0.2.36
+------
+Small fixes:
+- Update README.md for better copy-ability  #1823 
+- Name download() column levels  #1795 
+- Fix history(keepna=False) when repair=True  #1824 
+- Replace empty list with empty pd.Series  #1724 
+- Handle peewee with old sqlite  #1827 
+- Fix JSON error handling  #1830 #1833
+
+0.2.35
+------
+Internal fixes for 0.2.34
+
+0.2.34
+------
+Features:
+- Add Recommendations Trend Summary #1754
+- Add Recommendation upgrades & downgrades #1773
+- Add Insider Roster & Transactions #1772
+- Moved download() progress bar to STDERR #1776
+- PIP optional dependencies #1771
+- Set sensible min versions for optional 'nospam' reqs #1807
+Fixes
+- Fix download() DatetimeIndex on invalid symbols #1779
+- Fix invalid date entering cache DB #1796
+- Fix Ticker.calendar fetch #1790
+- Fixed adding complementary to info #1774
+- Ticker.earnings_dates: fix warning "Value 'NaN' has dtype incompatible with float64" #1810
+- Minor fixes for price repair and related tests #1768
+- Fix price repair div adjust #1798
+- Fix 'raise_errors' argument ignored in Ticker.history() #1806
+Maintenance
+- Fix regression: _get_ticker_tz() args were being swapped. Improve its unit test #1793
+- Refactor Ticker proxy #1711
+- Add Ruff linter checks #1756
+- Resolve Pandas FutureWarnings #1766
+
 0.2.33
 ------
 Cookie fixes:
@@ -250,7 +359,7 @@ Jumping to 0.2 for this big update. 0.1.* will continue to receive bug-fixes
 - Fix timezone handling
 - Fix handling of missing data
 - Clean&format earnings_dates table
-- Add ``.get_earnings_dates()`` to retreive earnings calendar
+- Add ``.get_earnings_dates()`` to retrieve earnings calendar
 - Added ``.get_earnings_history()`` to fetch earnings data
 
 0.1.70
@@ -562,7 +671,7 @@ Jumping to 0.2 for this big update. 0.1.* will continue to receive bug-fixes
 - Removed 5 second wait for every failed fetch
 - Reduced TTL for Yahoo!'s cookie
 - Keeps track of failed downloads and tries to re-download all failed downloads one more time before giving up
-- Added progress bar (can be turned off useing ``progress=False``)
+- Added progress bar (can be turned off using ``progress=False``)
 
 0.0.7
 -------

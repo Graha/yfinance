@@ -1,7 +1,7 @@
 import peewee as _peewee
 from threading import Lock
 import os as _os
-import appdirs as _ad
+import platformdirs as _ad
 import atexit as _atexit
 import datetime as _datetime
 import pickle as _pkl
@@ -145,7 +145,14 @@ class _TzCache:
 
         db.connect()
         tz_db_proxy.initialize(db)
-        db.create_tables([_KV])
+        try:
+            db.create_tables([_KV])
+        except _peewee.OperationalError as e:
+            if 'WITHOUT' in str(e):
+                _KV._meta.without_rowid = False
+                db.create_tables([_KV])
+            else:
+                raise
         self.initialised = 1  # success
 
     def lookup(self, key):
@@ -195,17 +202,6 @@ class _TzCache:
 
 def get_tz_cache():
     return _TzCacheManager.get_tz_cache()
-
-
-def set_tz_cache_location(cache_dir: str):
-    """
-    Sets the path to create the "py-yfinance" cache folder in.
-    Useful if the default folder returned by "appdir.user_cache_dir()" is not writable.
-    Must be called before cache is used (that is, before fetching tickers).
-    :param cache_dir: Path to use for caches
-    :return: None
-    """
-    _TzDBManager.set_location(cache_dir)
 
 
 
@@ -300,9 +296,21 @@ _atexit.register(_CookieDBManager.close_db)
 
 
 Cookie_db_proxy = _peewee.Proxy()
+class ISODateTimeField(_peewee.DateTimeField):
+    # Ensure Python datetime is read & written correctly for sqlite, 
+    # because user discovered peewee allowed an invalid datetime
+    # to get written.
+    def db_value(self, value):
+        if value and isinstance(value, _datetime.datetime):
+            return value.isoformat()
+        return super().db_value(value)
+    def python_value(self, value):
+        if value and isinstance(value, str) and 'T' in value:
+            return _datetime.datetime.fromisoformat(value)
+        return super().python_value(value)
 class _CookieSchema(_peewee.Model):
     strategy = _peewee.CharField(primary_key=True)
-    fetch_date = _peewee.DateTimeField(default=_datetime.datetime.now)
+    fetch_date = ISODateTimeField(default=_datetime.datetime.now)
     
     # Which cookie type depends on strategy
     cookie_bytes = _peewee.BlobField()
@@ -343,7 +351,14 @@ class _CookieCache:
 
         db.connect()
         Cookie_db_proxy.initialize(db)
-        db.create_tables([_CookieSchema])
+        try:
+            db.create_tables([_CookieSchema])
+        except _peewee.OperationalError as e:
+            if 'WITHOUT' in str(e):
+                _CookieSchema._meta.without_rowid = False
+                db.create_tables([_CookieSchema])
+            else:
+                raise
         self.initialised = 1  # success
 
     def lookup(self, strategy):
@@ -397,4 +412,20 @@ class _CookieCache:
 
 def get_cookie_cache():
     return _CookieCacheManager.get_cookie_cache()
+
+
+
+def set_cache_location(cache_dir: str):
+    """
+    Sets the path to create the "py-yfinance" cache folder in.
+    Useful if the default folder returned by "appdir.user_cache_dir()" is not writable.
+    Must be called before cache is used (that is, before fetching tickers).
+    :param cache_dir: Path to use for caches
+    :return: None
+    """
+    _TzDBManager.set_location(cache_dir)
+    _CookieDBManager.set_location(cache_dir)
+
+def set_tz_cache_location(cache_dir: str):
+    set_cache_location(cache_dir)
 

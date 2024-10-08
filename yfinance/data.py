@@ -8,6 +8,7 @@ import datetime
 from frozendict import frozendict
 
 from . import utils, cache
+import threading
 
 cache_maxsize = 64
 
@@ -33,7 +34,6 @@ def lru_cache_freezeargs(func):
     return wrapped
 
 
-import threading
 class SingletonMeta(type):
     """
     Metaclass that creates a Singleton instance.
@@ -60,24 +60,8 @@ class YfData(metaclass=SingletonMeta):
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
     def __init__(self, session=None):
-        self._session = session or requests.Session()
-
-        try:
-            self._session.cache
-        except AttributeError:
-            # Not caching
-            self._session_is_caching = False
-        else:
-            # Is caching. This is annoying. 
-            # Can't simply use a non-caching session to fetch cookie & crumb, 
-            # because then the caching-session won't have cookie.
-            self._session_is_caching = True
-            from requests_cache import DO_NOT_CACHE
-            self._expire_after = DO_NOT_CACHE
         self._crumb = None
         self._cookie = None
-        if self._session_is_caching and self._cookie is None:
-            utils.print_once("WARNING: cookie & crumb does not work well with requests_cache. Am experimenting with 'expire_after=DO_NOT_CACHE', but you need to help stress-test.")
 
         # Default to using 'basic' strategy
         self._cookie_strategy = 'basic'
@@ -86,11 +70,26 @@ class YfData(metaclass=SingletonMeta):
 
         self._cookie_lock = threading.Lock()
 
+        self._set_session(session or requests.Session())
+
     def _set_session(self, session):
         if session is None:
             return
         with self._cookie_lock:
             self._session = session
+
+        try:
+            self._session.cache
+        except AttributeError:
+            # Not caching
+            self._session_is_caching = False
+        else:
+            # Is caching. This is annoying.
+            # Can't simply use a non-caching session to fetch cookie & crumb,
+            # because then the caching-session won't have cookie.
+            self._session_is_caching = True
+            from requests_cache import DO_NOT_CACHE
+            self._expire_after = DO_NOT_CACHE
 
     def _set_cookie_strategy(self, strategy, have_lock=False):
         if strategy == self._cookie_strategy:
@@ -207,7 +206,7 @@ class YfData(metaclass=SingletonMeta):
 
         utils.get_yf_logger().debug(f"crumb = '{self._crumb}'")
         return self._crumb
-    
+
     @utils.log_indent_decorator
     def _get_cookie_and_crumb_basic(self, proxy, timeout):
         cookie = self._get_cookie_basic(proxy, timeout)
@@ -257,10 +256,10 @@ class YfData(metaclass=SingletonMeta):
             'originalDoneUrl': originalDoneUrl,
             'namespace': namespace,
         }
-        post_args = {**base_args, 
+        post_args = {**base_args,
             'url': f'https://consent.yahoo.com/v2/collectConsent?sessionId={sessionId}',
             'data': data}
-        get_args = {**base_args, 
+        get_args = {**base_args,
             'url': f'https://guce.yahoo.com/copyConsent?sessionId={sessionId}',
             'data': data}
         if self._session_is_caching:
@@ -288,7 +287,7 @@ class YfData(metaclass=SingletonMeta):
             return None
 
         get_args = {
-            'url': 'https://query2.finance.yahoo.com/v1/test/getcrumb', 
+            'url': 'https://query2.finance.yahoo.com/v1/test/getcrumb',
             'headers': self.user_agent_headers,
             'proxies': proxy,
             'timeout': timeout}

@@ -42,6 +42,34 @@ Yahoo! finance API is intended for personal use only.**
 
 ---
 
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Advanced](#logging)
+- [Wiki](https://github.com/ranaroussi/yfinance/wiki)
+- [Contribute](#developers-want-to-contribute)
+
+---
+
+## Installation
+
+Install `yfinance` using `pip`:
+
+``` {.sourceCode .bash}
+$ pip install yfinance --upgrade --no-cache-dir
+```
+
+[With Conda](https://anaconda.org/ranaroussi/yfinance).
+
+To install with optional dependencies, replace `optional` with: `nospam` for [caching-requests](#smarter-scraping), `repair` for [price repair](https://github.com/ranaroussi/yfinance/wiki/Price-repair), or `nospam,repair` for both:
+
+``` {.sourceCode .bash}
+$ pip install "yfinance[optional]"
+```
+
+[Required dependencies](./requirements.txt) , [all dependencies](./setup.py#L62).
+
+---
+
 ## Quick Start
 
 ### The Ticker module
@@ -72,6 +100,8 @@ msft.capital_gains  # only for mutual funds & etfs
 msft.get_shares_full(start="2022-01-01", end=None)
 
 # show financials:
+msft.calendar
+msft.sec_filings
 # - income statement
 msft.income_stmt
 msft.quarterly_income_stmt
@@ -87,8 +117,27 @@ msft.quarterly_cashflow
 msft.major_holders
 msft.institutional_holders
 msft.mutualfund_holders
+msft.insider_transactions
+msft.insider_purchases
+msft.insider_roster_holders
 
-# Show future and historic earnings dates, returns at most next 4 quarters and last 8 quarters by default. 
+msft.sustainability
+
+# show recommendations
+msft.recommendations
+msft.recommendations_summary
+msft.upgrades_downgrades
+
+# show analysts data
+msft.analyst_price_targets
+msft.earnings_estimate
+msft.revenue_estimate
+msft.earnings_history
+msft.eps_trend
+msft.eps_revisions
+msft.growth_estimates
+
+# Show future and historic earnings dates, returns at most next 4 quarters and last 8 quarters by default.
 # Note: If more are needed use msft.get_earnings_dates(limit=XX) with increased limit argument.
 msft.earnings_dates
 
@@ -105,6 +154,31 @@ msft.news
 # get option chain for specific expiration
 opt = msft.option_chain('YYYY-MM-DD')
 # data available via: opt.calls, opt.puts
+```
+
+For tickers that are ETFs/Mutual Funds, `Ticker.funds_data` provides access to fund related data. 
+
+Funds' Top Holdings and other data with category average is returned as `pd.DataFrame`.
+
+```python
+import yfinance as yf
+spy = yf.Ticker('SPY')
+data = spy.funds_data
+
+# show fund description
+data.description
+
+# show operational information
+data.fund_overview
+data.fund_operations
+
+# show holdings related information
+data.asset_classes
+data.top_holdings
+data.equity_holdings
+data.bond_holdings
+data.bond_ratings
+data.sector_weightings
 ```
 
 If you want to use a proxy server for downloading data, use:
@@ -149,15 +223,65 @@ data = yf.download("SPY AAPL", period="1mo")
 
 #### `yf.download()` and `Ticker.history()` have many options for configuring fetching and processing. [Review the Wiki](https://github.com/ranaroussi/yfinance/wiki) for more options and detail.
 
+### Sector and Industry
+
+The `Sector` and `Industry` modules allow you to access the US market information.
+
+To initialize, use the relevant sector or industry key as below. (Complete mapping of the keys is available in `const.py`.)
+
+```python
+import yfinance as yf
+
+tech = yf.Sector('technology')
+software = yf.Industry('software-infrastructure')
+
+# Common information
+tech.key
+tech.name
+tech.symbol
+tech.ticker
+tech.overview
+tech.top_companies
+tech.research_reports
+
+# Sector information
+tech.top_etfs
+tech.top_mutual_funds
+tech.industries
+
+# Industry information
+software.sector_key
+software.sector_name
+software.top_performing_companies
+software.top_growth_companies
+```
+
+The modules can be chained with Ticker as below.
+```python
+import yfinance as yf
+
+# Ticker to Sector and Industry
+msft = yf.Ticker('MSFT')
+tech = yf.Sector(msft.info.get('sectorKey'))
+software = yf.Industry(msft.info.get('industryKey'))
+
+# Sector and Industry to Ticker
+tech_ticker = tech.ticker
+tech_ticker.info
+software_ticker = software.ticker
+software_ticker.history()
+```
+
 ### Logging
 
 `yfinance` now uses the `logging` module to handle messages, default behaviour is only print errors. If debugging, use `yf.enable_debug_mode()` to switch logging to debug with custom formatting.
 
 ### Smarter scraping
 
-To use a custom `requests` session (for example to cache calls to the
-API or customize the `User-agent` header), pass a `session=` argument to
-the Ticker constructor.
+Install the `nospam` packages for smarter scraping using `pip` (see [Installation](#installation)). These packages help cache calls such that Yahoo is not spammed with requests.
+
+To use a custom `requests` session, pass a `session=` argument to
+the Ticker constructor. This allows for caching calls to the API as well as a custom way to modify requests via  the `User-agent` header.
 
 ```python
 import requests_cache
@@ -168,7 +292,7 @@ ticker = yf.Ticker('msft', session=session)
 ticker.actions
 ```
 
-Combine a `requests_cache` with rate-limiting to avoid triggering Yahoo's rate-limiter/blocker that can corrupt data.
+Combine `requests_cache` with rate-limiting to avoid triggering Yahoo's rate-limiter/blocker that can corrupt data.
 ```python
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
@@ -199,31 +323,16 @@ yfinance?](https://stackoverflow.com/questions/63107801)
         -   How to download single or multiple tickers into a single
             dataframe with single level column names and a ticker column
 
-### `pandas_datareader` override
-
-If your code uses `pandas_datareader` and you want to download data
-faster, you can "hijack" `pandas_datareader.data.get_data_yahoo()`
-method to use **yfinance** while making sure the returned data is in the
-same format as **pandas\_datareader**'s `get_data_yahoo()`.
-
-```python
-from pandas_datareader import data as pdr
-
-import yfinance as yf
-yf.pdr_override() # <== that's all it takes :-)
-
-# download dataframe
-data = pdr.get_data_yahoo("SPY", start="2017-01-01", end="2017-04-30")
-```
-
 ### Persistent cache store
 
 To reduce Yahoo, yfinance store some data locally: timezones to localize dates, and cookie. Cache location is:
+
 - Windows = C:/Users/\<USER\>/AppData/Local/py-yfinance
 - Linux = /home/\<USER\>/.cache/py-yfinance
 - MacOS = /Users/\<USER\>/Library/Caches/py-yfinance
 
 You can direct cache to use a different location with `set_tz_cache_location()`:
+
 ```python
 import yfinance as yf
 yf.set_tz_cache_location("custom/cache/location")
@@ -231,41 +340,6 @@ yf.set_tz_cache_location("custom/cache/location")
 ```
 
 ---
-
-## Installation
-
-Install `yfinance` using `pip`:
-
-``` {.sourceCode .bash}
-$ pip install yfinance --upgrade --no-cache-dir
-```
-
-Test new features by installing betas, provide feedback in [corresponding Discussion](https://github.com/ranaroussi/yfinance/discussions):
-``` {.sourceCode .bash}
-$ pip install yfinance --upgrade --no-cache-dir --pre
-```
-
-To install `yfinance` using `conda`, see
-[this](https://anaconda.org/ranaroussi/yfinance).
-
-### Requirements
-
--   [Python](https://www.python.org) \>= 2.7, 3.4+
--   [Pandas](https://github.com/pydata/pandas) \>= 1.3.0
--   [Numpy](http://www.numpy.org) \>= 1.16.5
--   [requests](http://docs.python-requests.org/en/master) \>= 2.31
--   [lxml](https://pypi.org/project/lxml) \>= 4.9.1
--   [appdirs](https://pypi.org/project/appdirs) \>= 1.4.4
--   [pytz](https://pypi.org/project/pytz) \>=2022.5
--   [frozendict](https://pypi.org/project/frozendict) \>= 2.3.4
--   [beautifulsoup4](https://pypi.org/project/beautifulsoup4) \>= 4.11.1
--   [html5lib](https://pypi.org/project/html5lib) \>= 1.1
--   [peewee](https://pypi.org/project/peewee)  \>= 3.16.2
-
-#### Optional (if you want to use `pandas_datareader`)
-
--   [pandas\_datareader](https://github.com/pydata/pandas-datareader)
-    \>= 0.4.0
 
 ## Developers: want to contribute?
 
@@ -285,7 +359,7 @@ intended for research and educational purposes. You should refer to Yahoo!'s ter
 ([here](https://policies.yahoo.com/us/en/yahoo/terms/product-atos/apiforydn/index.htm),
 [here](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html), and
 [here](https://policies.yahoo.com/us/en/yahoo/terms/index.htm)) for
-detailes on your rights to use the actual data downloaded.
+details on your rights to use the actual data downloaded.
 
 ---
 

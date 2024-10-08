@@ -26,10 +26,10 @@ import logging
 import re as _re
 import sys as _sys
 import threading
-from functools import lru_cache
+from functools import lru_cache, wraps
 from inspect import getmembers
 from types import FunctionType
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import numpy as _np
 import pandas as _pd
@@ -40,11 +40,6 @@ from pytz import UnknownTimeZoneError
 
 from yfinance import const
 from .const import _BASE_URL_
-
-try:
-    import ujson as _json
-except ImportError:
-    import json as _json
 
 user_agent_headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -62,7 +57,7 @@ def attributes(obj):
 
 @lru_cache(maxsize=20)
 def print_once(msg):
-    # 'warnings' module suppression of repeat messages does not work. 
+    # 'warnings' module suppression of repeat messages does not work.
     # This function replicates correct behaviour
     print(msg)
 
@@ -100,6 +95,7 @@ def get_indented_logger(name=None):
 
 
 def log_indent_decorator(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         logger = get_indented_logger('yfinance')
         logger.debug(f'Entering {func.__name__}()')
@@ -145,39 +141,45 @@ yf_logger = None
 yf_log_indented = False
 
 
+class YFLogFormatter(logging.Filter):
+    # Help be consistent with structuring YF log messages
+    def filter(self, record):
+        msg = record.msg
+        if hasattr(record, 'yf_cat'):
+            msg = f"{record.yf_cat}: {msg}"
+        if hasattr(record, 'yf_interval'):
+            msg = f"{record.yf_interval}: {msg}"
+        if hasattr(record, 'yf_symbol'):
+            msg = f"{record.yf_symbol}: {msg}"
+        record.msg = msg
+        return True
+
+
 def get_yf_logger():
     global yf_logger
-    if yf_logger is None:
-        yf_logger = logging.getLogger('yfinance')
     global yf_log_indented
     if yf_log_indented:
         yf_logger = get_indented_logger('yfinance')
+    elif yf_logger is None:
+        yf_logger = logging.getLogger('yfinance')
+        yf_logger.addFilter(YFLogFormatter())
     return yf_logger
 
 
-def setup_debug_formatting():
+def enable_debug_mode():
     global yf_logger
-    yf_logger = get_yf_logger()
-
-    if not yf_logger.isEnabledFor(logging.DEBUG):
-        yf_logger.warning("logging mode not set to 'DEBUG', so not setting up debug formatting")
-        return
-
     global yf_log_indented
     if not yf_log_indented:
+        yf_logger = logging.getLogger('yfinance')
+        yf_logger.setLevel(logging.DEBUG)
         if yf_logger.handlers is None or len(yf_logger.handlers) == 0:
             h = logging.StreamHandler()
             # Ensure different level strings don't interfere with indentation
             formatter = MultiLineFormatter(fmt='%(levelname)-8s %(message)s')
             h.setFormatter(formatter)
             yf_logger.addHandler(h)
-
-    yf_log_indented = True
-
-
-def enable_debug_mode():
-    get_yf_logger().setLevel(logging.DEBUG)
-    setup_debug_formatting()
+        yf_logger = get_indented_logger()
+        yf_log_indented = True
 
 
 def is_isin(string):
@@ -429,8 +431,16 @@ def _interval_to_timedelta(interval):
         return relativedelta(months=1)
     elif interval == "3mo":
         return relativedelta(months=3)
+    elif interval == "6mo":
+        return relativedelta(months=6)
     elif interval == "1y":
         return relativedelta(years=1)
+    elif interval == "2y":
+        return relativedelta(years=2)
+    elif interval == "5y":
+        return relativedelta(years=5)
+    elif interval == "10y":
+        return relativedelta(years=10)
     elif interval == "1wk":
         return _pd.Timedelta(days=7)
     else:
@@ -584,9 +594,9 @@ def fix_Yahoo_returning_prepost_unrequested(quotes, interval, tradingPeriods):
     return quotes
 
 
-def fix_Yahoo_returning_live_separate(quotes, interval, tz_exchange):
-    # Yahoo bug fix. If market is open today then Yahoo normally returns 
-    # todays data as a separate row from rest-of week/month interval in above row. 
+def fix_Yahoo_returning_live_separate(quotes, interval, tz_exchange, repair=False, currency=None):
+    # Yahoo bug fix. If market is open today then Yahoo normally returns
+    # todays data as a separate row from rest-of week/month interval in above row.
     # Seems to depend on what exchange e.g. crypto OK.
     # Fix = merge them together
     n = quotes.shape[0]
@@ -622,6 +632,30 @@ def fix_Yahoo_returning_live_separate(quotes, interval, tz_exchange):
                     # Yahoo returning last interval duplicated, which means
                     # Yahoo is not returning live data (phew!)
                     return quotes
+
+                ss = quotes['Stock Splits'].iloc[-2:].replace(0,1).prod()
+                if repair:
+                    # First, check if one row is ~100x the other. A £/pence mixup on LSE.
+                    # Avoid if a stock split near 100
+                    if currency == 'KWF':
+                        # Kuwaiti Dinar divided into 1000 not 100
+                        currency_divide = 1000
+                    else:
+                        currency_divide = 100
+                    # if ss < 75 or ss > 125:
+                    if abs(ss/currency_divide-1) > 0.25:
+                        ratio = quotes.loc[idx1, const._PRICE_COLNAMES_] / quotes.loc[idx2, const._PRICE_COLNAMES_]
+                        if ((ratio/currency_divide-1).abs() < 0.05).all():
+                            # newer prices are 100x
+                            for c in const._PRICE_COLNAMES_:
+                                quotes.loc[idx2, c] *= 100
+                        elif((ratio*currency_divide-1).abs() < 0.05).all():
+                            # newer prices are 0.01x
+                            for c in const._PRICE_COLNAMES_:
+                                quotes.loc[idx2, c] *= 0.01
+
+                # quotes.loc[idx2, 'Stock Splits'] = 2  # wtf? why doing this?
+
                 if _np.isnan(quotes.loc[idx2, "Open"]):
                     quotes.loc[idx2, "Open"] = quotes["Open"].iloc[n - 1]
                 # Note: nanmax() & nanmin() ignores NaNs, but still need to check not all are NaN to avoid warnings
@@ -639,6 +673,9 @@ def fix_Yahoo_returning_live_separate(quotes, interval, tz_exchange):
                 if "Adj Close" in quotes.columns:
                     quotes.loc[idx2, "Adj Close"] = quotes["Adj Close"].iloc[n - 1]
                 quotes.loc[idx2, "Volume"] += quotes["Volume"].iloc[n - 1]
+                quotes.loc[idx2, "Dividends"] += quotes["Dividends"].iloc[n - 1]
+                if ss != 1.0:
+                    quotes.loc[idx2, "Stock Splits"] = ss
                 quotes = quotes.drop(quotes.index[n - 1])
 
     return quotes
@@ -650,7 +687,6 @@ def safe_merge_dfs(df_main, df_sub, interval):
     if df_main.empty:
         return df_main
 
-    df_sub_backup = df_sub.copy()
     data_cols = [c for c in df_sub.columns if c not in df_main]
     if len(data_cols) > 1:
         raise Exception("Expected 1 data col")
@@ -695,7 +731,7 @@ def safe_merge_dfs(df_main, df_sub, interval):
                 df_main['Dividends'] = 0.0
                 return df_main
         else:
-            empty_row_data = {**{c:[_np.nan] for c in const.price_colnames}, 'Volume':[0]}
+            empty_row_data = {**{c:[_np.nan] for c in const._PRICE_COLNAMES_}, 'Volume':[0]}
             if interval == '1d':
                 # For 1d, add all out-of-range event dates
                 for i in _np.where(f_outOfRange)[0]:
@@ -704,7 +740,7 @@ def safe_merge_dfs(df_main, df_sub, interval):
                     empty_row = _pd.DataFrame(data=empty_row_data, index=[dt])
                     df_main = _pd.concat([df_main, empty_row], sort=True)
             else:
-                # Else, only add out-of-range event dates if occurring in interval 
+                # Else, only add out-of-range event dates if occurring in interval
                 # immediately after last price row
                 last_dt = df_main.index[-1]
                 next_interval_start_dt = last_dt + td
@@ -712,7 +748,6 @@ def safe_merge_dfs(df_main, df_sub, interval):
                 for i in _np.where(f_outOfRange)[0]:
                     dt = df_sub.index[i]
                     if next_interval_start_dt <= dt < next_interval_end_dt:
-                        new_dt = next_interval_start_dt
                         get_yf_logger().debug(f"Adding out-of-range {data_col} @ {dt.date()} in new prices row of NaNs")
                         empty_row = _pd.DataFrame(data=empty_row_data, index=[dt])
                         df_main = _pd.concat([df_main, empty_row], sort=True)
@@ -772,14 +807,14 @@ def safe_merge_dfs(df_main, df_sub, interval):
 
 def fix_Yahoo_dst_issue(df, interval):
     if interval in ["1d", "1w", "1wk"]:
-        # These intervals should start at time 00:00. But for some combinations of date and timezone, 
+        # These intervals should start at time 00:00. But for some combinations of date and timezone,
         # Yahoo has time off by few hours (e.g. Brazil 23:00 around Jan-2022). Suspect DST problem.
-        # The clue is (a) minutes=0 and (b) hour near 0. 
+        # The clue is (a) minutes=0 and (b) hour near 0.
         # Obviously Yahoo meant 00:00, so ensure this doesn't affect date conversion:
         f_pre_midnight = (df.index.minute == 0) & (df.index.hour.isin([22, 23]))
         dst_error_hours = _np.array([0] * df.shape[0])
         dst_error_hours[f_pre_midnight] = 24 - df.index[f_pre_midnight].hour
-        df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
+        df.index += _pd.to_timedelta(dst_error_hours, 'h')
     return df
 
 
@@ -865,9 +900,9 @@ class ProgressBar:
         if self.elapsed > self.iterations:
             self.elapsed = self.iterations
         self.update_iteration(1)
-        print('\r' + str(self), end='')
-        _sys.stdout.flush()
-        print()
+        print('\r' + str(self), end='', file=_sys.stderr)
+        _sys.stderr.flush()
+        print("", file=_sys.stderr)
 
     def animate(self, iteration=None):
         if iteration is None:
@@ -876,8 +911,8 @@ class ProgressBar:
         else:
             self.elapsed += iteration
 
-        print('\r' + str(self), end='')
-        _sys.stdout.flush()
+        print('\r' + str(self), end='', file=_sys.stderr)
+        _sys.stderr.flush()
         self.update_iteration()
 
     def update_iteration(self, val=None):
@@ -891,7 +926,7 @@ class ProgressBar:
         num_hashes = int(round((percent_done / 100.0) * all_full))
         self.prog_bar = '[' + self.fill_char * num_hashes + ' ' * (all_full - num_hashes) + ']'
         pct_place = (len(self.prog_bar) // 2) - len(str(percent_done))
-        pct_string = f'{percent_done}%%'
+        pct_string = f'{percent_done}%'
         self.prog_bar = self.prog_bar[0:pct_place] + (pct_string + self.prog_bar[pct_place + len(pct_string):])
 
     def __str__(self):
