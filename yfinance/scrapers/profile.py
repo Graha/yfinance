@@ -1,7 +1,5 @@
 import re
-
 import pandas as pd
-import numpy as np
 
 from yfinance.data import YfData
 from bs4 import BeautifulSoup
