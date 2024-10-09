@@ -34,7 +34,7 @@ class Ticker(TickerBase):
     def __init__(self, ticker, session=None, proxy=None):
         super(Ticker, self).__init__(ticker, session=session, proxy=proxy)
         self._expirations = {}
-        self._underlying  = {}
+        self._underlying = {}
 
     def __repr__(self):
         return f'yfinance.Ticker object <{self.ticker}>'
@@ -48,13 +48,14 @@ class Ticker(TickerBase):
         r = self._data.get(url=url, proxy=self.proxy).json()
         if len(r.get('optionChain', {}).get('result', [])) > 0:
             for exp in r['optionChain']['result'][0]['expirationDates']:
-                self._expirations[_pd.Timestamp(exp, unit='s').strftime('%Y-%m-%d')] = exp
+                self._expirations[_pd.Timestamp(
+                    exp, unit='s').strftime('%Y-%m-%d')] = exp
 
             self._underlying = r['optionChain']['result'][0].get('quote', {})
 
             opt = r['optionChain']['result'][0].get('options', [])
 
-            return dict(**opt[0],underlying=self._underlying) if len(opt) > 0 else {}
+            return dict(**opt[0], underlying=self._underlying) if len(opt) > 0 else {}
         return {}
 
     def _options2df(self, opt, tz=None):
@@ -133,6 +134,42 @@ class Ticker(TickerBase):
     @property
     def insider_roster_holders(self) -> _pd.DataFrame:
         return self.get_insider_roster_holders()
+
+    @property
+    def top_holdings(self) -> _pd.DataFrame:
+        return self.get_top_holdings()
+
+    @property
+    def composition_holdings(self) -> _pd.DataFrame:
+        return self.get_composition_holdings()
+
+    @property
+    def sector_holdings(self) -> _pd.DataFrame:
+        return self.get_sector_holdings()
+
+    @property
+    def bondRating_holdings(self) -> _pd.DataFrame:
+        return self.get_bondRating_holdings()
+
+    @property
+    def equity_holdings(self) -> _pd.DataFrame:
+        return self.get_equity_holdings()
+
+    @property
+    def bond_holdings(self) -> _pd.DataFrame:
+        return self.get_bond_holdings()
+
+    @property
+    def returns_performance(self) -> _pd.DataFrame:
+        return self.get_returns_performance()
+
+    @property
+    def annual_performance(self) -> _pd.DataFrame:
+        return self.get_annual_performance()
+
+    @property
+    def profile_performance(self) -> _pd.DataFrame:
+        return self.get_profile_performance()
 
     @property
     def dividends(self) -> _pd.Series:
