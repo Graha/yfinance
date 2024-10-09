@@ -36,6 +36,7 @@ from .exceptions import YFEarningsDateMissing
 from .scrapers.analysis import Analysis
 from .scrapers.fundamentals import Fundamentals
 from .scrapers.holders import Holders
+from .scrapers.holdings import Holdings
 from .scrapers.quote import Quote, FastInfo
 from .scrapers.history import PriceHistory
 from .scrapers.funds import FundsData
@@ -69,6 +70,7 @@ class TickerBase:
         self._price_history = None  # lazy-load
         self._analysis = Analysis(self._data, self.ticker)
         self._holders = Holders(self._data, self.ticker)
+        self._holdings = Holdings(self._data, self.ticker)
         self._quote = Quote(self._data, self.ticker)
         self._fundamentals = Fundamentals(self._data, self.ticker)
         self._funds_data = None
@@ -83,7 +85,8 @@ class TickerBase:
 
     def _lazy_load_price_history(self):
         if self._price_history is None:
-            self._price_history = PriceHistory(self._data, self.ticker, self._get_ticker_tz(self.proxy, timeout=10))
+            self._price_history = PriceHistory(
+                self._data, self.ticker, self._get_ticker_tz(self.proxy, timeout=10))
         return self._price_history
 
     def _get_ticker_tz(self, proxy, timeout):
@@ -122,7 +125,8 @@ class TickerBase:
         url = f"{_BASE_URL_}/v8/finance/chart/{self.ticker}"
 
         try:
-            data = self._data.cache_get(url=url, params=params, proxy=proxy, timeout=timeout)
+            data = self._data.cache_get(
+                url=url, params=params, proxy=proxy, timeout=timeout)
             data = data.json()
         except Exception as e:
             logger.error(f"Failed to get ticker '{self.ticker}' reason: {e}")
@@ -131,12 +135,14 @@ class TickerBase:
             error = data.get('chart', {}).get('error', None)
             if error:
                 # explicit error from yahoo API
-                logger.debug(f"Got error from yahoo api for ticker {self.ticker}, Error: {error}")
+                logger.debug(
+                    f"Got error from yahoo api for ticker {self.ticker}, Error: {error}")
             else:
                 try:
                     return data["chart"]["result"][0]["meta"]["exchangeTimezoneName"]
                 except Exception as err:
-                    logger.error(f"Could not get exchangeTimezoneName for ticker '{self.ticker}' reason: {err}")
+                    logger.error(
+                        f"Could not get exchangeTimezoneName for ticker '{self.ticker}' reason: {err}")
                     logger.debug("Got response: ")
                     logger.debug("-------------")
                     logger.debug(f" {data}")
@@ -224,6 +230,54 @@ class TickerBase:
                 return data.to_dict()
             return data
 
+    def get_composition_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy or self.proxy
+        data = self._holdings.composition
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_sector_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.sector
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_top_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.top
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_bondRating_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.bondRating
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_equity_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.equityHoldings
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_bond_holdings(self, proxy=None, as_dict=False):
+        self._holdings.proxy = proxy
+        data = self._holdings.bondHoldings
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
     def get_info(self, proxy=None) -> dict:
         self._quote.proxy = proxy or self.proxy
         data = self._quote.info
@@ -236,7 +290,8 @@ class TickerBase:
 
     @property
     def basic_info(self):
-        warnings.warn("'Ticker.basic_info' is deprecated and will be removed in future, Switch to 'Ticker.fast_info'", DeprecationWarning)
+        warnings.warn(
+            "'Ticker.basic_info' is deprecated and will be removed in future, Switch to 'Ticker.fast_info'", DeprecationWarning)
         return self.fast_info
 
     def get_sustainability(self, proxy=None, as_dict=False):
@@ -350,11 +405,13 @@ class TickerBase:
         """
         self._fundamentals.proxy = proxy or self.proxy
 
-        data = self._fundamentals.financials.get_income_time_series(freq=freq, proxy=proxy)
+        data = self._fundamentals.financials.get_income_time_series(
+            freq=freq, proxy=proxy)
 
         if pretty:
             data = data.copy()
-            data.index = utils.camel2title(data.index, sep=' ', acronyms=["EBIT", "EBITDA", "EPS", "NI"])
+            data.index = utils.camel2title(data.index, sep=' ', acronyms=[
+                                           "EBIT", "EBITDA", "EPS", "NI"])
         if as_dict:
             return data.to_dict()
         return data
@@ -383,11 +440,13 @@ class TickerBase:
         """
         self._fundamentals.proxy = proxy or self.proxy
 
-        data = self._fundamentals.financials.get_balance_sheet_time_series(freq=freq, proxy=proxy)
+        data = self._fundamentals.financials.get_balance_sheet_time_series(
+            freq=freq, proxy=proxy)
 
         if pretty:
             data = data.copy()
-            data.index = utils.camel2title(data.index, sep=' ', acronyms=["PPE"])
+            data.index = utils.camel2title(
+                data.index, sep=' ', acronyms=["PPE"])
         if as_dict:
             return data.to_dict()
         return data
@@ -413,11 +472,13 @@ class TickerBase:
         """
         self._fundamentals.proxy = proxy or self.proxy
 
-        data = self._fundamentals.financials.get_cash_flow_time_series(freq=freq, proxy=proxy)
+        data = self._fundamentals.financials.get_cash_flow_time_series(
+            freq=freq, proxy=proxy)
 
         if pretty:
             data = data.copy()
-            data.index = utils.camel2title(data.index, sep=' ', acronyms=["PPE"])
+            data.index = utils.camel2title(
+                data.index, sep=' ', acronyms=["PPE"])
         if as_dict:
             return data.to_dict()
         return data
@@ -453,10 +514,12 @@ class TickerBase:
         dt_now = pd.Timestamp.utcnow().tz_convert(tz)
         if start is not None:
             start_ts = utils._parse_user_dt(start, tz)
-            start = pd.Timestamp.fromtimestamp(start_ts).tz_localize("UTC").tz_convert(tz)
+            start = pd.Timestamp.fromtimestamp(
+                start_ts).tz_localize("UTC").tz_convert(tz)
         if end is not None:
             end_ts = utils._parse_user_dt(end, tz)
-            end = pd.Timestamp.fromtimestamp(end_ts).tz_localize("UTC").tz_convert(tz)
+            end = pd.Timestamp.fromtimestamp(
+                end_ts).tz_localize("UTC").tz_convert(tz)
         if end is None:
             end = dt_now
         if start is None:
@@ -474,23 +537,27 @@ class TickerBase:
             json_data = self._data.cache_get(url=shares_url, proxy=proxy)
             json_data = json_data.json()
         except (_json.JSONDecodeError, requests.exceptions.RequestException):
-            logger.error(f"{self.ticker}: Yahoo web request for share count failed")
+            logger.error(
+                f"{self.ticker}: Yahoo web request for share count failed")
             return None
         try:
             fail = json_data["finance"]["error"]["code"] == "Bad Request"
         except KeyError:
             fail = False
         if fail:
-            logger.error(f"{self.ticker}: Yahoo web request for share count failed")
+            logger.error(
+                f"{self.ticker}: Yahoo web request for share count failed")
             return None
 
         shares_data = json_data["timeseries"]["result"]
         if "shares_out" not in shares_data[0]:
             return None
         try:
-            df = pd.Series(shares_data[0]["shares_out"], index=pd.to_datetime(shares_data[0]["timestamp"], unit="s"))
+            df = pd.Series(shares_data[0]["shares_out"], index=pd.to_datetime(
+                shares_data[0]["timestamp"], unit="s"))
         except Exception as e:
-            logger.error(f"{self.ticker}: Failed to parse shares count data: {e}")
+            logger.error(
+                f"{self.ticker}: Failed to parse shares count data: {e}")
             return None
 
         df.index = df.index.tz_localize(tz)
@@ -547,9 +614,10 @@ class TickerBase:
                                "the issue. Thank you for your patience.")
         try:
             data = data.json()
-        except (_json.JSONDecodeError): 
+        except (_json.JSONDecodeError):
             logger = utils.get_yf_logger()
-            logger.error(f"{self.ticker}: Failed to retrieve the news and received faulty response instead.")
+            logger.error(
+                f"{self.ticker}: Failed to retrieve the news and received faulty response instead.")
             data = {}
 
         # parse news
@@ -653,5 +721,5 @@ class TickerBase:
     def get_funds_data(self, proxy=None) -> Optional[FundsData]:
         if not self._funds_data:
             self._funds_data = FundsData(self._data, self.ticker)
-        
+
         return self._funds_data
