@@ -28,37 +28,37 @@ class Holdings:
         self._equityHoldings = None
         self._bondHoldings = None
 
-    @ property
+    @property
     def top(self) -> pd.DataFrame:
         if self._top is None:
             self._fetch_and_parse()
         return self._top
 
-    @ property
+    @property
     def sector(self) -> pd.DataFrame:
         if self._sector is None:
             self._fetch_and_parse()
         return self._sector
 
-    @ property
+    @property
     def composition(self) -> pd.DataFrame:
         if self._composition is None:
             self._fetch_and_parse()
         return self._composition
 
-    @ property
+    @property
     def bondRating(self) -> pd.DataFrame:
         if self._bondRating is None:
             self._fetch_and_parse()
         return self._bondRating
 
-    @ property
+    @property
     def equityHoldings(self) -> pd.DataFrame:
         if self._equityHoldings is None:
             self._fetch_and_parse()
         return self._equityHoldings
 
-    @ property
+    @property
     def bondHoldings(self) -> pd.DataFrame:
         if self._bondHoldings is None:
             self._fetch_and_parse()
@@ -99,7 +99,7 @@ class Holdings:
         except (KeyError, IndexError):
             raise YFDataException("Failed to parse holders json data.")
 
-    @ staticmethod
+    @staticmethod
     def _parse_raw_values(data):
         if isinstance(data, dict) and "raw" in data:
             return data["raw"]

@@ -160,6 +160,18 @@ class Ticker(TickerBase):
         return self.get_bond_holdings()
 
     @property
+    def returns_performance(self) -> _pd.DataFrame:
+        return self.get_returns_performance()
+
+    @property
+    def annual_performance(self) -> _pd.DataFrame:
+        return self.get_annual_performance()
+
+    @property
+    def profile_performance(self) -> _pd.DataFrame:
+        return self.get_profile_performance()
+
+    @property
     def dividends(self) -> _pd.Series:
         return self.get_dividends()
 

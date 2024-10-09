@@ -37,6 +37,7 @@ from .scrapers.analysis import Analysis
 from .scrapers.fundamentals import Fundamentals
 from .scrapers.holders import Holders
 from .scrapers.holdings import Holdings
+from .scrapers.performance import Performance
 from .scrapers.quote import Quote, FastInfo
 from .scrapers.history import PriceHistory
 from .scrapers.funds import FundsData
@@ -71,6 +72,7 @@ class TickerBase:
         self._analysis = Analysis(self._data, self.ticker)
         self._holders = Holders(self._data, self.ticker)
         self._holdings = Holdings(self._data, self.ticker)
+        self._performance = Performance(self._data, self.ticker)
         self._quote = Quote(self._data, self.ticker)
         self._fundamentals = Fundamentals(self._data, self.ticker)
         self._funds_data = None
@@ -273,6 +275,30 @@ class TickerBase:
     def get_bond_holdings(self, proxy=None, as_dict=False):
         self._holdings.proxy = proxy
         data = self._holdings.bondHoldings
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_returns_performance(self, proxy=None, as_dict=False):
+        self._performance.proxy = proxy
+        data = self._performance.returns
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_annual_performance(self, proxy=None, as_dict=False):
+        self._performance.proxy = proxy
+        data = self._performance._annual
+        if data is not None:
+            if as_dict:
+                return data.to_dict()
+            return data
+
+    def get_profile_performance(self, proxy=None, as_dict=False):
+        self._performance.proxy = proxy
+        data = self._performance._profile
         if data is not None:
             if as_dict:
                 return data.to_dict()
