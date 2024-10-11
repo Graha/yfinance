@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 
 from yfinance.data import YfData
@@ -8,6 +9,19 @@ from yfinance import utils
 from typing import Dict, Optional
 
 _QUOTE_SUMMARY_URL_ = f"{_BASE_URL_}/v10/finance/quoteSummary/"
+
+def moringstar_score(file_name):
+    # image file name to morning star score
+    score = []
+    for col in ["Large", "Med", "Small"]:
+        for row in ["Value", "Blend", "Growth"]:
+            score += [f"{col}-{row}"]
+    result = re.search(r".*3_0stylelargeeq(\d).gif", file_name)
+    if result is not None:
+        return score[int(result.group(1))-1]
+    else:
+        return None
+
 
 '''
 Supports ETF and Mutual Funds Data
@@ -210,7 +224,8 @@ class FundsData:
         self._fund_overview = {
             "categoryName": data.get("categoryName", None), 
             "family":       data.get("family", None), 
-            "legalType":    data.get("legalType", None)
+            "legalType":    data.get("legalType", None),
+            "morningstarRating": moringstar_score(data.get("styleBoxUrl", ""))
         }
         
         _fund_operations = data.get("feesExpensesInvestment", {})
